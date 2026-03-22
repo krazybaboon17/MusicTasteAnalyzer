@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "framework": null,
+  "installCommand": "pip install -r requirements.txt",
+  "buildCommand": "reflex export --frontend-only --no-zip",
+  "outputDirectory": ".web/_static",
+  "routes": [
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ]
+}
