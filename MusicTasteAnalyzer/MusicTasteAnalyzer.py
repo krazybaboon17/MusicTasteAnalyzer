@@ -2,45 +2,49 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import reflex as rx
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 sp = spotipy.Spotify(
     auth_manager=SpotifyOAuth(
-        client_id="2a59e0328a074720a0902ac2e69a8ca9",
-        client_secret="57df342acbbf4a16a87bf60694b03ae5",
-        redirect_uri="http://127.0.0.1:3000/callback",
+        client_id=os.getenv("SPOTIPY_CLIENT_ID"),
+        client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
+        redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
         scope="user-top-read user-read-recently-played user-read-private",
     )
 )
 
-results = sp.current_user_top_tracks(limit=5, time_range="medium_term")
-
-artist = sp.current_user_top_artists(limit=5, time_range="medium_term")
-
-artists_data = []
-for a in artist["items"]:
-    name = a["name"]
-    if a["images"]:
-        image_url = a["images"][0]["url"]
-    else:
-        image_url = ""
-    artists_data.append({"name": name, "image": image_url})
-
-tracks_data = []   
-duration = []
-for track in results["items"]:
-    name = track["name"]
-    short_name = name if len(name) <= 15 else name[:15] + "..."
-    image_url = track["album"]["images"][0]["url"]
-    tracks_data.append({"name": name, "short_name": short_name, "image": image_url})
-    length_sec = track["duration_ms"] // 1000
-    duration.append(str(length_sec) + "s")
-    tracks_data[-1]["duration"] = length_sec
-
-
-
 class State(rx.State):
-    tracks: list[dict[str, str]] = tracks_data
-    artists: list[dict[str, str]] = artists_data
-    duration: list[str] = duration
+    tracks: list[dict[str, str]] = []
+    artists: list[dict[str, str]] = []
+    duration: list[str] = []
+
+    def get_data(self):
+        results = sp.current_user_top_tracks(limit=5, time_range="medium_term")
+        artists_raw = sp.current_user_top_artists(limit=5, time_range="medium_term")
+        
+        self.artists = []
+        for a in artists_raw["items"]:
+            self.artists.append({
+                "name": a["name"], 
+                "image": a["images"][0]["url"] if a["images"] else ""
+            })
+            
+        self.tracks = []
+        self.duration = []
+        for track in results["items"]:
+            name = track["name"]
+            short_name = name if len(name) <= 15 else name[:15] + "..."
+            length_sec = track["duration_ms"] // 1000
+            self.tracks.append({
+                "name": name, 
+                "short_name": short_name, 
+                "image": track["album"]["images"][0]["url"],
+                "duration": length_sec
+            })
+            self.duration.append(str(length_sec) + "s")
 
 
 def getTrack(track: dict):
@@ -202,4 +206,4 @@ app = rx.App(
         "https://fonts.googleapis.com/css2?family=Poppins:wght@400;700&display=swap",
     ],
 )
-app.add_page(index)
+app.add_page(index, on_load=State.get_data)
